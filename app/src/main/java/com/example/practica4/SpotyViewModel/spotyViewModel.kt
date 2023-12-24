@@ -36,7 +36,7 @@ class spotyViewModel : ViewModel(){
         _exoPlayer.value!!.playWhenReady = true
     }
 
-    fun sonarCanciones(context : Context){
+    fun sonarCanciones(context : Context, index: Int){
         var cancion = MediaItem.fromUri(obtenerRuta(context,_Cancionactual.value))
         _exoPlayer.value!!.setMediaItem(cancion)
         _exoPlayer.value!!.playWhenReady = true
@@ -50,17 +50,17 @@ class spotyViewModel : ViewModel(){
                             _progresoCancion.value = _exoPlayer.value!!.currentPosition.toInt()
                             delay(1000)
                         }
-
                     }
                 }
-                else if(playbackState == Player.STATE_BUFFERING){
+                else if (playbackState == Player.STATE_BUFFERING)  {
 
                 }
-                else if(playbackState == Player.STATE_ENDED){
-                    CambiarCancion(context)
+                else if(playbackState == Player.STATE_ENDED) {
+
+                    CambiarCancion(context, index + 1)
 
                 }
-                else if(playbackState == Player.STATE_IDLE){
+                else if (playbackState == Player.STATE_IDLE){
 
                 }
 
@@ -75,11 +75,17 @@ class spotyViewModel : ViewModel(){
     }
 
 
-    fun CambiarCancion(context: Context) {
+    fun CambiarCancion(context: Context, index: Int) {
         _exoPlayer.value!!.stop()
         _exoPlayer.value!!.clearMediaItems()
-        if(_Cancionactual.value == R.raw.migrane) _Cancionactual.value = R.raw.catdog
-        else _Cancionactual.value = R.raw.warofhormones
+        val listaCanciones = listOf(
+            R.raw.migrane,
+            R.raw.catdog,
+            R.raw.warofhormones,
+            R.raw.friction,
+            R.raw.petcheeta
+        )
+        _Cancionactual.value = listaCanciones[index]
         _exoPlayer.value!!.setMediaItem(MediaItem.fromUri(obtenerRuta(context, _Cancionactual.value)))
         _exoPlayer.value!!.prepare()
         _exoPlayer.value!!.playWhenReady = true

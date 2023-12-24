@@ -10,12 +10,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.KeyboardArrowLeft
 import androidx.compose.material.icons.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -29,88 +31,122 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.practica4.SpotyViewModel.spotyViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+
+@Composable
+fun cancionesCuadro(canciones: Canciones){
+    Text(
+        text = canciones.nombre,
+        style = MaterialTheme.typography.bodyLarge.copy(fontSize = 20.sp)
+
+    )
+    Column (modifier = Modifier
+        .padding(16.dp)){
+        Image(painter = painterResource(id = canciones.foto),
+            contentDescription = null,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(400.dp))
+    }
+
+    Column (modifier = Modifier
+        .padding(16.dp)) {
+        Slider(
+            value = canciones.duracion,
+            onValueChange = {
+                canciones.duracion = it
+            },
+            onValueChangeFinished = {
+
+            },
+            valueRange = 0f..canciones.duracion.toFloat()
+        )
+    }
+}
+
 
 @Composable
 fun spoty() {
-    var volumen by remember { mutableStateOf(0F) }
+
+    val listaCanciones = listOf(
+        Canciones("Migraine", 239F, R.drawable.top),
+        Canciones("Ca&Dog", 187F, R.drawable.txt),
+        Canciones("War of Hormones", 265F, R.drawable.bts),
+        Canciones("Friction", 201F, R.drawable.imaginedragons),
+        Canciones("Pet Cheeta", 198F, R.drawable.top2)
+    )
+
+    var duracion by remember { mutableStateOf(0F) }
+    var cancionactual by remember { mutableStateOf(0)}
+    var currentSongIndex by remember { mutableStateOf(0) }
     val spotyViewModel: spotyViewModel = spotyViewModel()
     val contexto = LocalContext.current
 
-    val listaCanciones = listOf(
-        Canciones("Migraine", "3:10", R.drawable.top),
-        Canciones("Ca&Dog", "3:10", R.drawable.txt),
-        Canciones("War of Hormones", "3:10", R.drawable.bts),
-        Canciones("Friction", "3:10", R.drawable.imaginedragons),
-        Canciones("Pet Cheeta", "3:10", R.drawable.top2)
-    )
 
-    LaunchedEffect(Unit){
+
+    LaunchedEffect(cancionactual){
         spotyViewModel.crearPlayer(contexto)
-        spotyViewModel.sonarCanciones(contexto)
+        spotyViewModel.sonarCanciones(contexto, cancionactual)
     }
+
 
     LazyColumn(modifier = Modifier
         .fillMaxSize()
         .padding(16.dp)) {
-        item{Text(
+        item { Text(
             text ="Now Playing",
             style = MaterialTheme.typography.bodyLarge.copy(fontSize = 25.sp)
 
-        )}
-        item{
-            Column (modifier = Modifier
-                .padding(16.dp)){
-                Image(painter = painterResource(id = R.drawable.top),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(400.dp))
-            }
-        }
-        item{
-            Column (modifier = Modifier
-                .padding(16.dp)){
-                Slider(
-                    value = volumen,
-                    onValueChange = { volumen = it },
-                    onValueChangeFinished = {
+        ) }
 
-                    },
-                    steps = 50,
-                    valueRange = 100F..140F
-                )
-            }
-        }
         item {
-            Column(modifier = Modifier
-                .padding(16.dp)) {
-                Row(modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Button(onClick = { /*TODO*/ }) {
-                        //Icon(painter = painterResource(id = R.drawable.ale), contentDescription = null)
-                    }
-                    Button(onClick = { /*TODO*/ }) {
-                        Icon(imageVector = Icons.Outlined.KeyboardArrowLeft, contentDescription = null)
-                    }
-                    Button(onClick = { spotyViewModel.PausarOSeguirMusica() }) {
-                        Icon(imageVector = Icons.Outlined.PlayArrow, contentDescription = null)
-                    }
-                    Button(onClick = { spotyViewModel.CambiarCancion(contexto) }) {
-                        Icon(imageVector = Icons.Outlined.KeyboardArrowRight, contentDescription = null)
-                    }
-                    Button(onClick = { /*TODO*/ }) {
-                        Icon(painter = painterResource(id = R.drawable.bucle), contentDescription = null)
-                    }
+            cancionesCuadro(listaCanciones[cancionactual])
+        }
 
+        item {
+            Row(modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = {
+                    cancionactual = (0 until listaCanciones.size).random()
+                    duracion = listaCanciones[cancionactual].duracion
+                    spotyViewModel.CambiarCancion(contexto, cancionactual) }) {
+                    Icon(painter = painterResource(id = R.drawable.ale), contentDescription = null)
                 }
+                IconButton(onClick = {
+                    if (cancionactual > 0) {
+                        cancionactual--
+                        duracion = listaCanciones[cancionactual].duracion
+                        spotyViewModel.CambiarCancion(contexto, cancionactual)
+                    }
+                }) {
+                    Icon(imageVector = Icons.Outlined.KeyboardArrowLeft, contentDescription = null)
+                }
+                IconButton(onClick = { spotyViewModel.PausarOSeguirMusica() }) {
+                    Icon(imageVector = Icons.Outlined.PlayArrow, contentDescription = null)
+                }
+                IconButton(onClick = {
+                    if (cancionactual < listaCanciones.size - 1) {
+                        cancionactual++
+                        duracion = listaCanciones[cancionactual].duracion
+                        spotyViewModel.CambiarCancion(contexto, cancionactual)
+                    }
+                }) {
+                    Icon(imageVector = Icons.Outlined.KeyboardArrowRight, contentDescription = null)
+                }
+                IconButton(onClick = {  }) {
+                    Icon(painter = painterResource(id = R.drawable.bucle), contentDescription = null)
+                }
+
             }
         }
     }
 }
+
