@@ -5,12 +5,15 @@ import android.content.Context
 import android.content.res.Resources
 import android.net.Uri
 import androidx.annotation.AnyRes
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import com.example.practica4.Canciones
 import com.example.practica4.R
+import com.example.practica4.listaCanciones
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,14 +24,26 @@ class spotyViewModel : ViewModel(){
     private val _exoPlayer : MutableStateFlow<ExoPlayer?> = MutableStateFlow(null)
     val exoPlayer = _exoPlayer.asStateFlow()
 
-    private val _Cancionactual  = MutableStateFlow(R.raw.migrane)
-    val Cancionactual = _Cancionactual.asStateFlow()
-
     private val _duracionCancion  = MutableStateFlow(0)
     val duracionCancion = _duracionCancion.asStateFlow()
 
     private val _progresoCancion = MutableStateFlow(0)
     val progresoCancion = _progresoCancion.asStateFlow()
+
+    private val _rep = MutableStateFlow(true)
+    val rep = _rep.asStateFlow()
+
+    var indCancionActual = MutableStateFlow(0)
+    var cancionActual = mutableStateOf(listaCanciones[indCancionActual.value])
+
+    private val _modoReproduccion = MutableStateFlow(Reproduccion.NORMAL)
+    val modoReproduccion = _modoReproduccion.asStateFlow()
+
+    enum class Reproduccion {
+        NORMAL,
+        ALEATORIA,
+        BUCLE
+    }
 
     fun crearPlayer(context: Context){
         _exoPlayer.value = ExoPlayer.Builder(context).build()
@@ -36,8 +51,9 @@ class spotyViewModel : ViewModel(){
         _exoPlayer.value!!.playWhenReady = true
     }
 
-    fun sonarCanciones(context : Context, index: Int){
-        var cancion = MediaItem.fromUri(obtenerRuta(context,_Cancionactual.value))
+    fun sonarCanciones(context : Context){
+        var cancion =
+            MediaItem.fromUri("android.resource://${context.packageName}/${cancionActual.value.cancion}")
         _exoPlayer.value!!.setMediaItem(cancion)
         _exoPlayer.value!!.playWhenReady = true
         _exoPlayer.value!!.addListener(object : Player.Listener{
@@ -53,60 +69,90 @@ class spotyViewModel : ViewModel(){
                     }
                 }
                 else if (playbackState == Player.STATE_BUFFERING)  {
-
                 }
                 else if(playbackState == Player.STATE_ENDED) {
-
-                    CambiarCancion(context, index + 1)
-
+                    CambiarCancion(context)
                 }
                 else if (playbackState == Player.STATE_IDLE){
-
                 }
-
             }
         }
         )
     }
 
-    override fun onCleared() {
-        _exoPlayer.value!!.release()
-        super.onCleared()
+    fun CambiarCancion(context: Context) {
+        if (_modoReproduccion.value == Reproduccion.ALEATORIA) {
+            val nuevoIndice = (0 until listaCanciones.size).random()
+            indCancionActual.value = nuevoIndice
+        } else if (_modoReproduccion.value == Reproduccion.BUCLE) {
+        } else {
+            indCancionActual.value = (indCancionActual.value + 1) % listaCanciones.size
+        }
+
+        cancionActual.value = listaCanciones[indCancionActual.value]
+        cargarCancion(context, cancionActual.value)
+        _rep.value = !_exoPlayer.value!!.isPlaying
     }
 
+    fun anterior(context: Context) {
+        if (_modoReproduccion.value == Reproduccion.ALEATORIA) {
+            if (_progresoCancion.value <= 3000) {
+                val nuevoIndice = (0 until listaCanciones.size).random()
+                indCancionActual.value = nuevoIndice
+            }
+        } else if (_modoReproduccion.value == Reproduccion.BUCLE) {
+        } else {
+            if (_progresoCancion.value <= 3000) {
+                indCancionActual.value =
+                    if (indCancionActual.value > 0) {
+                        indCancionActual.value - 1
+                    } else {
+                        listaCanciones.size - 1
+                    }
+            }
+        }
 
-    fun CambiarCancion(context: Context, index: Int) {
-        _exoPlayer.value!!.stop()
-        _exoPlayer.value!!.clearMediaItems()
-        val listaCanciones = listOf(
-            R.raw.migrane,
-            R.raw.catdog,
-            R.raw.warofhormones,
-            R.raw.friction,
-            R.raw.petcheeta
-        )
-        _Cancionactual.value = listaCanciones[index]
-        _exoPlayer.value!!.setMediaItem(MediaItem.fromUri(obtenerRuta(context, _Cancionactual.value)))
-        _exoPlayer.value!!.prepare()
-        _exoPlayer.value!!.playWhenReady = true
+        cancionActual.value = listaCanciones[indCancionActual.value]
+        cargarCancion(context, cancionActual.value)
+        _rep.value = !_exoPlayer.value!!.isPlaying
     }
 
-    fun PausarOSeguirMusica() {
-        if (_exoPlayer.value!!.isPlaying){
+    fun reproducirCancion() {
+        _rep.value = !_exoPlayer.value!!.isPlaying
+        if (_exoPlayer.value!!.isPlaying) {
             _exoPlayer.value!!.pause()
-        }else {
+        } else {
             _exoPlayer.value!!.play()
         }
     }
+    fun reproducirAleatoria() {
+        _modoReproduccion.value =
+            if (_modoReproduccion.value != Reproduccion.ALEATORIA) Reproduccion.ALEATORIA else Reproduccion.NORMAL
+        _exoPlayer.value?.shuffleModeEnabled = (_modoReproduccion.value == Reproduccion.ALEATORIA)
+    }
+
+    fun reproducirBucle() {
+        _modoReproduccion.value =
+            if (_modoReproduccion.value != Reproduccion.BUCLE) Reproduccion.BUCLE else Reproduccion.NORMAL
+        _exoPlayer.value?.repeatMode = when (_modoReproduccion.value) {
+            Reproduccion.BUCLE -> Player.REPEAT_MODE_ONE
+            else -> Player.REPEAT_MODE_OFF
+        }
+    }
+
+    fun actualizarProgresoCancion(nuevaPosicion: Int) {
+        val exoPlayer = _exoPlayer.value ?: return
+
+        exoPlayer.seekTo(nuevaPosicion.toLong())
+    }
+
+    private fun cargarCancion(context: Context, cancion: Canciones) {
+        val mediaItem =
+            MediaItem.fromUri("android.resource://${context.packageName}/${cancion.cancion}")
+
+        _exoPlayer.value?.setMediaItem(mediaItem)
+        _exoPlayer.value?.prepare()
+        _exoPlayer.value?.play()
+    }
 }
 
-@Throws(Resources.NotFoundException::class)
-fun obtenerRuta(context: Context, @AnyRes resId: Int): Uri {
-    val res: Resources = context.resources
-    return Uri.parse(
-        ContentResolver.SCHEME_ANDROID_RESOURCE +
-                "://" + res.getResourcePackageName(resId)
-                + '/' + res.getResourceTypeName(resId)
-                + '/' + res.getResourceEntryName(resId)
-    )
-}
